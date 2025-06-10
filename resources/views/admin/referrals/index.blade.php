@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container">
-    <h1 class="mb-4">Referral Dashboard</h1>
+    <h2 class="mb-4">Referral Dashboard</h2>
 
     <table class="table table-bordered table-striped">
         <thead>
