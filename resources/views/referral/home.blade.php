@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid px-0">
-    <h3 class="mb-3" style="margin-left: 0;">Check Referral Reward Eligibility</h3>
+    <h4 class="mb-3" style="margin-left: 0;">Check Referral Reward Eligibility</h4>
 
     <div class="row">
         <!-- Left column: Eligibility Check Form -->
