@@ -1,4 +1,3 @@
-```markdown
 # REFERRAL-TRACKING-SYSTEM
 
 *Empowering Growth Through Seamless Referral Connections*
@@ -18,3 +17,50 @@
 ![PHP](https://img.shields.io/badge/PHP-777BB4.svg?style=flat&logo=PHP&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF.svg?style=flat&logo=Vite&logoColor=white)
 ![Axios](https://img.shields.io/badge/Axios-5A29E4.svg?style=flat&logo=Axios&logoColor=white)
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Testing](#testing)
+
+---
+
+## Overview
+
+Referral Tracking System is a robust developer tool that combines a modern frontend stack with a Laravel backend to facilitate scalable referral program management. It streamlines the development of feature-rich, maintainable web applications with integrated routing, database, and background processing capabilities.
+
+**Why referral-tracking-system?**
+
+This project empowers developers to build efficient referral systems with ease. The core features include:
+
+- 🛠️ **Frontend tooling:** Utilizes Vite, Tailwind CSS, and Axios for fast, responsive UI development.
+- 🔧 **Laravel integration:** Seamless artisan CLI commands, routing, and database management.
+- 📊 **Referral management:** Generate codes, verify eligibility, and monitor rewards through intuitive views.
+- 🚀 **Scalable architecture:** Organized configs and modular components for growth and maintainability.
+- 🧪 **Testing & deployment:** Built-in PHPUnit setup and environment-specific configurations for reliable releases.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+This project requires the following dependencies:
+
+- **Programming Language:** PHP
+- **Package Manager:** npm, Composer
+
+### Installation
+
+Build referral-tracking-system from the source and install dependencies:
+
+1. **Clone the repository:**
+
+```bash
+git clone https://github.com/WaaelAkram/referral-tracking-system
