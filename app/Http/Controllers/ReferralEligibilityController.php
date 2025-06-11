@@ -67,7 +67,7 @@ class ReferralEligibilityController extends Controller
         if ($request->input('action') === 'add') {
             DB::transaction(function () use ($referrer, $externalPatient, $request, $totalPaid) {
                 DB::table('referrals')->insert([
-                    'referrer_patient_id' => $referrer->id,
+                    'referrer_patient_id' => $referrer->referrer_patient_id,
                     'referred_patient_id' => $externalPatient->id,
                     'referral_date' => now(),
                     'status' => 'pending',
@@ -77,25 +77,10 @@ class ReferralEligibilityController extends Controller
                 ]);
             });
 
-            return view('referral.home', [
-                'result' => '✅ Referral successfully added!',
-                'referral_code' => $request->referral_code,
-                'referrer' => $referrer,
-                'referred_patient' => $externalPatient,
-                'total_paid' => $totalPaid,
-                'reward_threshold' => self::REWARD_THRESHOLD,
-                'reward_value' => self::REWARD_VALUE,
-            ]);
+            return back()->with('success', '✅ Referral successfully added!')->withInput();
         }
 
-        return view('referral.home', [
-            'result' => '✅ Referral is valid and eligible for rewards.',
-            'referral_code' => $request->referral_code,
-            'referrer' => $referrer,
-            'referred_patient' => $externalPatient,
-            'total_paid' => $totalPaid,
-            'reward_threshold' => self::REWARD_THRESHOLD,
-            'reward_value' => self::REWARD_VALUE,
-        ]);
+        // Just checking eligibility
+        return back()->with('success', '✅ Referral is valid and eligible for rewards.')->withInput();
     }
 }

@@ -8,8 +8,6 @@ use Carbon\Carbon;
 
 class ReferralCodeGeneratorController extends Controller
 {
-    // Existing methods ...
-
     public function generateReferralCode(Request $request)
     {
         $request->validate([
@@ -24,7 +22,7 @@ class ReferralCodeGeneratorController extends Controller
             ->first();
 
         if (!$patient) {
-            return back()->withErrors(['phone' => 'Patient not found']);
+            return back()->withErrors(['phone' => 'Patient not found'])->withInput();
         }
 
         $referralCode = 'REF' . $patient->id;
@@ -34,22 +32,21 @@ class ReferralCodeGeneratorController extends Controller
             ->exists();
 
         if ($exists) {
-            return back()->withErrors(['phone' => 'Referral code already exists for this patient']);
+            return back()->withErrors(['phone' => 'Referral code already exists for this patient'])->withInput();
         }
 
-      DB::connection('mysql_referral_system')->table('referrers')->insert([
-
+        DB::table('referrers')->insert([
             'referrer_patient_id' => $patient->id,
             'referral_code' => $referralCode,
             'referrer_phone' => $phone,
             'created_at' => Carbon::now(),
+    
         ]);
 
-       return redirect()->back()->with([
-    'generated_patient' => $patient,
-    'generated_code' => $referralCode,
-    'success_message' => 'Referral code generated and saved successfully.',
-]);
-
+        return back()->with([
+            'generated_patient' => $patient,
+            'generated_code' => $referralCode,
+            'success_message' => 'Referral code generated and saved successfully.',
+        ])->withInput();
     }
 }
