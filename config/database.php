@@ -31,6 +31,8 @@ return [
 
     'connections' => [
 
+
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
@@ -43,7 +45,7 @@ return [
             
         ],
 
-      'mysql' => [
+      'mysql_referral_system' => [
     'driver' => 'mysql',
     'url' => env('DB_URL'),
     'host' => env('DB_HOST', '127.0.0.1'),

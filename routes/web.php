@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ReferralDashboardController;
 use App\Http\Controllers\ReferralEligibilityController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\ReferralCodeGeneratorController;
 
 // Admin dashboard route
 Route::prefix('admin')->group(function () {
@@ -18,3 +19,9 @@ Route::get('/referral/eligibility', [ReferralEligibilityController::class, 'show
 // Handle form submission for both checking and adding
 Route::post('/referral/eligibility/check', [ReferralEligibilityController::class, 'check'])->name('referral.eligibility.check');
 
+
+//Route::post('/referral/generate-code', [ReferralCodeGeneratorController::class, 'generateCode'])->name('referral.generate_code');
+
+// Generate referral code for a patient
+
+Route::post('/referral/generate-code', [ReferralCodeGeneratorController::class, 'generateReferralCode'])->name('referral.generate_code');
