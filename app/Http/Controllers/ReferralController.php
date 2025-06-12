@@ -1,24 +1,18 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\DB;
+// There are no other 'use' statements needed for this simple controller.
 
 class ReferralController extends Controller
 {
+    /**
+     * Show the main application dashboard with the referral tools.
+     * This method no longer needs to pass any data to the view,
+     * as the search results are handled by a different controller.
+     */
     public function home()
     {
         return view('referral.home');
-    }
-
-    public function index()
-    {
-        $referrals = DB::table('referrals')
-            ->leftJoin('referrers as r', 'referrals.referrer_patient_id', '=', 'r.referrer_patient_id')
-            ->leftJoin('rewards as w', 'referrals.id', '=', 'w.referral_id')
-            ->select('referrals.*', 'r.referral_code', 'w.reward_value', 'w.reward_type')
-            ->orderBy('referrals.referral_date', 'desc')
-            ->paginate(20);
-
-        return view('admin.referrals.index', compact('referrals'));
     }
 }

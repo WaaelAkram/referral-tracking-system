@@ -1,40 +1,39 @@
 <?php
 
-use App\Http\Controllers\Admin\ReferralDashboardController;
-use App\Http\Controllers\ReferralEligibilityController;
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\ReferralEligibilityController;
 use App\Http\Controllers\ReferralCodeGeneratorController;
 use App\Http\Controllers\ReferralInfoController;
+use App\Http\Controllers\ProfileController;
 
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| All application routes are now protected by the 'auth' middleware.
+| Unauthenticated users will be redirected to the login screen.
+|
+*/
 
+Route::middleware('auth')->group(function () {
+    
+    // The root URL is now the main dashboard.
+    // We name it 'dashboard' so Breeze's post-login redirect works automatically.
+    Route::get('/', [ReferralController::class, 'home'])->name('dashboard');
 
+    // The form submission routes for the dashboard tools
+    Route::post('/referral/eligibility/check', [ReferralEligibilityController::class, 'check'])->name('referral.eligibility.check');
+    Route::post('/referral/generate-code', [ReferralCodeGeneratorController::class, 'generateReferralCode'])->name('referral.generate_code');
+    Route::post('/referral-info', [ReferralInfoController::class, 'referralInfoSearch'])->name('referral.info.search');
+    
 
-// Admin dashboard route
-Route::prefix('admin')->group(function () {
-    Route::get('/referrals', [ReferralDashboardController::class, 'index'])->name('admin.referrals');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Home route (could be general referral page)
-Route::get('/', [ReferralController::class, 'home'])->name('referral.home');
 
-// Show the eligibility form
-//Route::get('/referral/eligibility', [ReferralEligibilityController::class, 'showForm'])->name('referral.eligibility.form');
-Route::post('/referral/eligibility/check', [ReferralEligibilityController::class, 'check'])->name('referral.eligibility.check');
-
-// Handle form submission for both checking and adding
-//Route::post('/referral/eligibility/check', [ReferralEligibilityController::class, 'check'])->name('referral.eligibility.check');
-
-
-//Route::post('/referral/generate-code', [ReferralCodeGeneratorController::class, 'generateCode'])->name('referral.generate_code');
-
-// Generate referral code for a patient
-
-Route::post('/referral/generate-code', [ReferralCodeGeneratorController::class, 'generateReferralCode'])->name('referral.generate_code');
-// Referrers info
-
-
-
-
-Route::get('/referral-info', [ReferralInfoController::class, 'showForm'])->name('referral.info.form');
-Route::post('/referral-info', [ReferralInfoController::class, 'referralInfoSearch'])->name('referral.info.search');
-
+// --- Breeze Authentication Routes ---
+require __DIR__.'/auth.php';
