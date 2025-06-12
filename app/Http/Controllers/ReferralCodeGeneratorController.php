@@ -2,51 +2,37 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ReferralService; // <-- Import the service
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class ReferralCodeGeneratorController extends Controller
 {
-    public function generateReferralCode(Request $request)
+    // Inject the service via the constructor
+    public function __construct(private ReferralService $referralService)
     {
-        $request->validate([
-            'phone' => 'required|string',
-        ]);
+    }
 
-        $phone = $request->input('phone');
+      public function generateReferralCode(Request $request)
+    {
+        $request->validate(['phone' => 'required|string']);
 
-        $patient = DB::connection('mysql_referral_test')
-            ->table('patient')
-            ->where('mobile', $phone)
-            ->first();
+        try {
+            $result = $this->referralService->generateCodeForPatient($request->input('phone'));
+            
+            // On success, we redirect to the dashboard with flash data
+            return redirect()->route('dashboard')->with([
+                'generated_patient' => $result['patient'],
+                'generated_code' => $result['code'],
+                'success_message' => 'Referral code generated and saved successfully.',
+            ]);
 
-        if (!$patient) {
-            return back()->withErrors(['phone' => 'Patient not found'])->withInput();
+        } catch (\Exception $e) {
+
+            // --- THIS IS THE FIX ---
+            // We now explicitly redirect to the 'dashboard' route on any error.
+            return redirect()->route('dashboard')
+                ->withErrors(['phone' => $e->getMessage()])
+                ->withInput();
         }
-
-        $referralCode = 'REF' . $patient->id;
-
-        $exists = DB::table('referrers')
-            ->where('referrer_patient_id', $patient->id)
-            ->exists();
-
-        if ($exists) {
-            return back()->withErrors(['phone' => 'Referral code already exists for this patient'])->withInput();
-        }
-
-        DB::table('referrers')->insert([
-            'referrer_patient_id' => $patient->id,
-            'referral_code' => $referralCode,
-            'referrer_phone' => $phone,
-            'created_at' => Carbon::now(),
-    
-        ]);
-
-        return back()->with([
-            'generated_patient' => $patient,
-            'generated_code' => $referralCode,
-            'success_message' => 'Referral code generated and saved successfully.',
-        ])->withInput();
     }
 }

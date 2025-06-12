@@ -10,15 +10,26 @@ use Illuminate\Validation\Rules\Password;
 
 class PasswordController extends Controller
 {
-    /**
+           /**
      * Update the user's password.
      */
     public function update(Request $request): RedirectResponse
     {
-        $validated = $request->validateWithBag('updatePassword', [
-            'current_password' => ['required', 'current_password'],
-            'password' => ['required', Password::defaults(), 'confirmed'],
-        ]);
+        try {
+            // This validates the input and puts any errors into the 'updatePassword' bag.
+            $validated = $request->validateWithBag('updatePassword', [
+                'current_password' => ['required', 'current_password'],
+                'password' => ['required', 'string', 'confirmed'],
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            
+            // --- THIS IS THE FIX ---
+            // When validation fails, redirect back.
+            // Then, take the errors from the 'updatePassword' bag
+            // and merge them into the default error bag so they can be displayed.
+            return back()->withErrors($e->validator->errors()->getMessages(), 'updatePassword');
+        }
 
         $request->user()->update([
             'password' => Hash::make($validated['password']),

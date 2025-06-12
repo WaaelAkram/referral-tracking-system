@@ -26,7 +26,7 @@
                         <td>{{ $ref->id }}</td>
                         <td>{{ $ref->referrer_patient_id }}</td>
                         <td>{{ $ref->referred_patient_id }}</td>
-                        <td>{{ \Carbon\Carbon::parse($ref->referral_date)->format('Y-m-d') }}</td>
+                        <td>{{ \Carbon\Carbon::parse($ref->created_at)->format('Y-m-d') }}</td>
                         <td>{{ $ref->reward_value ? number_format($ref->reward_value, 2) . ' SAR' : 'N/A' }}</td>
                         <td>{{ ucfirst($ref->status) }}</td>
                         <td>{{ $ref->reward_type ?? '-' }}</td>

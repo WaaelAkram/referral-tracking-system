@@ -46,7 +46,7 @@
                                 <x-text-input id="mobile" class="block mt-1 w-full" type="text" name="mobile" :value="old('mobile')" required />
                             </div>
                             <div class="flex gap-4">
-                                <x-secondary-button type="submit" name="action" value="check" class="w-full justify-center">Check Only</x-secondary-button>
+                                <x-primary-button name="action" value="check" class="w-full justify-center">Check Only</x-primary-button>
                                 <x-primary-button type="submit" name="action" value="add" class="w-full justify-center">Add Referral</x-primary-button>
                             </div>
                         </form>
