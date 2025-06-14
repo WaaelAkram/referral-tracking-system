@@ -83,20 +83,25 @@ return [
         PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
     ]) : [],
 ],
-   'mssql_clinic' => [
-        'driver' => 'sqlsrv',
-        'host' => env('DB_MSSQL_HOST', 'localhost'),
-        'port' => env('DB_MSSQL_PORT', '1433'),
-        'database' => env('DB_MSSQL_DATABASE', 'forge'),
-        'username' => env('DB_MSSQL_USERNAME', 'forge'),
-        'password' => env('DB_MSSQL_PASSWORD', ''),
-        'charset' => 'utf8',
-        'prefix' => '',
-        'prefix_indexes' => true,
-         'encrypt' => env('DB_ENCRYPT', 'yes'), // Recommended for production
-        'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'), // May be needed for local dev or self-signed certs
-    ],
-
+          'mssql_clinic' => env('APP_ENV') === 'testing'
+         ? [ // Use this configuration IF the environment is 'testing'
+             'driver'   => 'sqlite',
+             'database' => ':memory:',
+             'prefix'   => '',
+         ]
+         : [ // Use this configuration for ALL OTHER environments (local, production)
+             'driver' => 'sqlsrv',
+             'host' => env('DB_MSSQL_HOST', 'localhost'),
+             'port' => env('DB_MSSQL_PORT', '1433'),
+             'database' => env('DB_MSSQL_DATABASE', 'forge'),
+             'username' => env('DB_MSSQL_USERNAME', 'forge'),
+             'password' => env('DB_MSSQL_PASSWORD', ''),
+             'charset' => 'utf8',
+             'prefix' => '',
+             'prefix_indexes' => true,
+             'encrypt' => env('DB_ENCRYPT', 'yes'),
+             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+         ],
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

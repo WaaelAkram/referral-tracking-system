@@ -57,7 +57,7 @@ class ReferralService
         // If this method completes without throwing an exception, eligibility is confirmed.
     }
 
-        /**
+    /**
      * Validates and creates a new referral in the database.
      *
      * @param string $referralCode
@@ -67,7 +67,6 @@ class ReferralService
      */
     public function createReferral(string $referralCode, string $referredMobile): Referral
     {
-        // --- THIS IS THE FIX ---
         // First, we call our validation helper. This method will either
         // throw an exception (if invalid) or return the necessary objects.
         $validation = $this->validateReferral($referralCode, $referredMobile);
@@ -75,7 +74,6 @@ class ReferralService
         // Now, we can safely use the variables it returned.
         $referrer = $validation['referrer'];
         $referredPatient = $validation['referredPatient'];
-        // --- END OF FIX ---
 
         $totalPaid = $this->clinicGateway->getTotalPaidForPatient($referredPatient->id);
 
@@ -88,6 +86,7 @@ class ReferralService
             'referral_code_used' => $referralCode,
         ]);
     }
+
     /**
      * Fetches detailed information for a given referrer.
      * @throws Exception
@@ -105,21 +104,31 @@ class ReferralService
         // Eager load the relationships for better performance
         $referrer->load('referrals.reward');
 
+        // --- START: REFACTORED CODE FOR PERFORMANCE ---
+
+        // 1. Get all referred patient IDs into an array
+        $referredPatientIds = $referrer->referrals->pluck('referred_patient_id')->all();
+
+        // 2. Make ONE call to get all patient details, and ONE call for all payments
+        $patientsById = $this->clinicGateway->findPatientsByIds($referredPatientIds);
+        $totalsPaidById = $this->clinicGateway->getTotalPaidForPatients($referredPatientIds);
+
+        // 3. Loop through the referrals and assemble the data (NO database calls inside loop)
         $referredPatientDetails = [];
         foreach ($referrer->referrals as $referral) {
-            // Find the external patient record
-            $patient = $this->clinicGateway->findPatientById($referral->referred_patient_id);
-            // Get their total paid amount
-            $totalPaid = $this->clinicGateway->getTotalPaidForPatient($referral->referred_patient_id);
+            $patient = $patientsById->get($referral->referred_patient_id);
+            $paymentInfo = $totalsPaidById->get($referral->referred_patient_id);
 
             $referredPatientDetails[] = (object)[
                 'fname_a' => $patient->fname_a ?? 'Unknown',
                 'lname_a' => $patient->lname_a ?? '',
                 'mobile' => $patient->mobile ?? '',
-                'total_paid' => $totalPaid,
+                'total_paid' => $paymentInfo->total_paid ?? 0.0,
                 'reward_value' => $referral->reward->reward_value ?? null,
             ];
         }
+
+        // --- END: REFACTORED CODE ---
 
         $referrerPatient = $this->clinicGateway->findPatientById($referrer->referrer_patient_id);
         
