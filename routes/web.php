@@ -6,6 +6,7 @@ use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReferralEligibilityController;
 use App\Http\Controllers\ReferralCodeGeneratorController;
 use App\Http\Controllers\ReferralInfoController;
+use App\Http\Controllers\ReferralProcessController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    //Update rewards.
+    Route::post('/referral/process-rewards', ReferralProcessController::class)->name('referral.process_rewards');
 });
 
 // This file contains all the routes for login, logout, registration, etc.

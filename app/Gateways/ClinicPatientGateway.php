@@ -16,7 +16,7 @@ class ClinicPatientGateway
     public function __construct()
     {
         // Set the database connection for this gateway
-        $this->connection = DB::connection('mysql_referral_test');
+        $this->connection = DB::connection('mssql_clinic');
     }
 
     /**
@@ -26,7 +26,7 @@ class ClinicPatientGateway
     {
         return $this->connection->table('patient')->where('mobile', $mobile)->first();
     }
-    
+
     /**
      * Find a patient by their ID.
      */
