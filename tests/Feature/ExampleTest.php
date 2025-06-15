@@ -12,4 +12,3 @@ class ExampleTest extends TestCase
         $response->assertStatus(200);
     }
 }
-// This test checks if the application can return a successful response when accessing the login page.
