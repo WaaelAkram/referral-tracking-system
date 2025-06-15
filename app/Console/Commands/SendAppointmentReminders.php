@@ -11,7 +11,19 @@ use Illuminate\Support\Facades\Log;
 
 class SendAppointmentReminders extends Command
 {
-    // ... (signature and description are the same) ...
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'reminders:send';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Find upcoming appointments and dispatch jobs to send WhatsApp reminders.';
 
     public function handle(ClinicPatientGateway $gateway): int
     {
@@ -30,14 +42,13 @@ class SendAppointmentReminders extends Command
         }
 
         // This part is the same
-        $sentIds = \App\Models\SentReminder::whereDate('sent_at', $now->toDateString())
+        $sentIds = SentReminder::whereDate('sent_at', $now->toDateString())
             ->pluck('appointment_id')
             ->all();
 
         $dispatchedCount = 0;
         foreach ($appointments as $appointment) {
             if (!in_array($appointment->appointment_id, $sentIds)) {
-                // *** UPDATED ***
                 // We only need to pass the appointment object now.
                 // The job is smart enough to find the right template.
                 SendSingleReminder::dispatch($appointment);

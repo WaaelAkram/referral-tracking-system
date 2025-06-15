@@ -11,18 +11,23 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
-use stdClass;
-
 
 class SendSingleReminder implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    // The job now accepts the appointment object
-    public function __construct(public stdClass $appointment)
+    /**
+     * Create a new job instance.
+     *
+     * @param \stdClass $appointment
+     */
+    public function __construct(public \stdClass $appointment)
     {
     }
 
+    /**
+     * Execute the job.
+     */
     public function handle(): void
     {
         // Determine which message template to use based on the status
@@ -41,7 +46,7 @@ class SendSingleReminder implements ShouldQueue
 
         // The rest of the logic is the same: personalize and "send" the message
         $patientName = $this->appointment->full_name;
-        $appointmentTime = Carbon\Carbon::parse($this->appointment->appointment_time)->format('g:i A');
+        $appointmentTime = Carbon::parse($this->appointment->appointment_time)->format('g:i A');
 
         $message = str_replace(
             ['{patient_name}', '{appointment_time}'],
@@ -62,7 +67,7 @@ class SendSingleReminder implements ShouldQueue
             );
 
             // Record that this reminder was "sent"
-            \App\Models\SentReminder::create([
+            SentReminder::create([
                 'appointment_id' => $this->appointment->appointment_id,
                 'sent_at' => now(),
             ]);
