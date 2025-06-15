@@ -9,8 +9,10 @@ class ReferralController extends Controller
      */
     public function home()
     {
-        // The dashboard view now contains all tools and lists.
-        // We'll pass an empty `info` variable so the view doesn't error on first load.
+        // --- THIS IS THE FIX ---
+        // Instead of trying to load a deleted view like 'referral.home',
+        // we now correctly load the main 'dashboard' view.
+        // We pass an empty `info` variable so the view doesn't error on first load.
         $info = null;
         return view('dashboard', compact('info'));
     }

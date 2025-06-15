@@ -52,7 +52,7 @@ class ProcessPendingReferrals extends Command
                     DB::transaction(function () use ($referral, $rewardValue, $rewardType) {
                         $referral->status = 'completed';
                         $referral->reward_issued = true;
-                        
+                        $referral->save();
                         Reward::create([
                             'referral_id' => $referral->id,
                             'reward_value' => $rewardValue,
@@ -61,7 +61,7 @@ class ProcessPendingReferrals extends Command
                         ]);
                     });
                     
-                    $referral->save();
+                    
                     $this->line("✅ Rewarded referral ID: {$referral->id}. Referred patient paid: {$totalPaid} SAR.");
                     Log::info("Reward issued for referral ID: {$referral->id}");
                     $rewardedCount++;
