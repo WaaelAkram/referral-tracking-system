@@ -86,4 +86,26 @@ class ClinicPatientGateway
             )
             ->get();
     }
+    
+
+
+
+public function getAppointmentsFinishedBetween(\Carbon\Carbon $startDateTime, \Carbon\Carbon $endDateTime): \Illuminate\Support\Collection
+{
+
+    return $this->connection->table('appointment')
+        ->whereRaw(
+            "CAST(app_dt AS DATETIME) + CAST(to_tm AS TIME) BETWEEN ? AND ?",
+            [
+                $startDateTime->toDateTimeString(),
+                $endDateTime->toDateTimeString()
+            ]
+        )
+        ->select(
+            'id as appointment_id',
+            'pt_name as full_name',
+            'mobile'
+        )
+        ->get();
+}
 }
