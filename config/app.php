@@ -26,7 +26,9 @@ return [
     |
     */
 
-    'env' => env('APP_ENV', 'production'),
+    // In config/app.php
+
+'env' => env('APP_ENV', 'local'), // <-- CHANGE 'production' TO 'local'
 
     /*
     |--------------------------------------------------------------------------
