@@ -91,26 +91,35 @@ class ClinicPatientGateway
     
 
 
-/**
- * Fetches ALL appointments for a given date to be processed in PHP.
- * This avoids complex and error-prone SQL date/time conversions.
- *
- * @param string $dateString in 'Y-m-d' format.
- * @return \Illuminate\Support\Collection
- */
-public function getAllAppointmentsForDate(string $dateString): \Illuminate\Support\Collection
-{
-    return $this->connection->table('appointment')
-        ->where('app_dt', $dateString)
-        ->whereNotNull('to_tm') // Only get appointments that have an end time
-        ->select(
-            'id as appointment_id',
-            'pt_name as full_name',
-            'mobile',
-            'doc_nm as doctor_name',
-            'app_dt', // Get the raw date
-            'to_tm'   // Get the raw time string (e.g., '03:00 pm')
-        )
-        ->get();
-}
+ /**
+     * Replaces the old `getAllAppointmentsForDate`.
+     * Fetches appointments that finished within a specific time window.
+     * This handles the 'yyyy/mm/dd' text-based date format safely.
+     *
+     * @param string $startTime 'H:i:s'
+     * @param string $endTime 'H:i:s'
+     * @return \Illuminate\Support\Collection
+     */
+    public function getAppointmentsFinishedInWindow(string $startTime, string $endTime): Collection
+    {
+        // Get today's date in the format the database uses (YYYY/MM/DD)
+        $today_yyyymmdd = now()->format('Y/m/d');
+
+        return $this->connection->table('appointment')
+            // Match today's date using the text format
+            ->where('app_dt', $today_yyyymmdd)
+            // Filter by the time part
+            ->whereTime('to_tm', '>=', $startTime)
+            ->whereTime('to_tm', '<', $endTime)
+            ->whereNotNull('to_tm')
+            ->select(
+                'id as appointment_id',
+                'pt_name as full_name',
+                'mobile',
+                'doc_nm as doctor_name',
+                'app_dt',
+                'to_tm'
+            )
+            ->get();
+    }
 }
