@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Jobs;
 
 use App\Models\SentFeedbackRequest;
@@ -14,8 +13,11 @@ class SendFeedbackRequest implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public \stdClass $appointment)
+    public $appointment;
+
+    public function __construct(\stdClass $appointment)
     {
+        $this->appointment = $appointment;
     }
 
     public function handle(): void
@@ -23,24 +25,26 @@ class SendFeedbackRequest implements ShouldQueue
         $messageTemplate = config('feedback.template');
         $feedbackLink = config('feedback.feedback_url');
 
+        $patientName = $this->appointment->full_name;
+        $doctorName = $this->appointment->doctor_name ?? 'the clinic';
+
         $message = str_replace(
-            ['{patient_name}', '{feedback_link}'],
-            [$this->appointment->full_name, $feedbackLink],
+            ['{patient_name}', '{doctor_name}', '{feedback_link}'],
+            [$patientName, $doctorName, $feedbackLink],
             $messageTemplate
         );
 
         try {
-            // Log the simulated action
             Log::channel('daily')->info(
                 "WHATSAPP_SIMULATION: Feedback Request Sent.",
                 [
                     'to' => $this->appointment->mobile,
                     'appointment_id' => $this->appointment->appointment_id,
+                    'doctor_name' => $doctorName,
                     'message_body' => $message,
                 ]
             );
 
-            // Record that this feedback request was "sent" to prevent duplicates
             SentFeedbackRequest::create([
                 'appointment_id' => $this->appointment->appointment_id,
                 'sent_at' => now(),

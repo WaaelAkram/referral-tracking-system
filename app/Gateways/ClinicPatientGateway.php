@@ -91,22 +91,25 @@ class ClinicPatientGateway
     
 
 
-
-public function getAppointmentsFinishedBetween(\Carbon\Carbon $startDateTime, \Carbon\Carbon $endDateTime): \Illuminate\Support\Collection
+/**
+ * Fetches ALL appointments for a given date to be processed in PHP.
+ * This avoids complex and error-prone SQL date/time conversions.
+ *
+ * @param string $dateString in 'Y-m-d' format.
+ * @return \Illuminate\Support\Collection
+ */
+public function getAllAppointmentsForDate(string $dateString): \Illuminate\Support\Collection
 {
-
     return $this->connection->table('appointment')
-        ->whereRaw(
-            "CAST(app_dt AS DATETIME) + CAST(to_tm AS TIME) BETWEEN ? AND ?",
-            [
-                $startDateTime->toDateTimeString(),
-                $endDateTime->toDateTimeString()
-            ]
-        )
+        ->where('app_dt', $dateString)
+        ->whereNotNull('to_tm') // Only get appointments that have an end time
         ->select(
             'id as appointment_id',
             'pt_name as full_name',
-            'mobile'
+            'mobile',
+            'doc_nm as doctor_name',
+            'app_dt', // Get the raw date
+            'to_tm'   // Get the raw time string (e.g., '03:00 pm')
         )
         ->get();
 }
