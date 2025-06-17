@@ -11,14 +11,15 @@ class Kernel extends ConsoleKernel
     {
         // ... any other commands ...
 
-        // This command will check for appointments every 15 minutes.
-        $schedule->command('reminders:send')->everyFifteenMinutes();
+        // THIS IS THE FIX:
+        $schedule->command('reminders:send')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping(); // <-- ADD THIS LINE
 
-        // NEW: This command will check for completed appointments every hour.
-        $schedule->command('feedback:send')->everyFifteenMinutes();
+        // Your feedback command, when added, should also have this
+        // $schedule->command('feedback:send')->hourly()->withoutOverlapping();
 
-        // Your existing referral processing job can also be scheduled here.
-        // $schedule->command('referrals:process')->daily();
+        // ...
     }
 
     // ...

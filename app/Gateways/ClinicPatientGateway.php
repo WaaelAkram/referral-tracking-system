@@ -82,6 +82,8 @@ class ClinicPatientGateway
                 'pt_name as full_name',
                 'mobile',
                 'from_tm as appointment_time',
+                'doc_nm as doctor_name',
+                'app_dt as appointment_date', 
                 'app_status'
             )
             ->get();
