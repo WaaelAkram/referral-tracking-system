@@ -68,26 +68,26 @@ class ClinicPatientGateway
             ->get()->keyBy('pt_id');
     }
    public function getAppointmentsInWindow(string $startTime, string $endTime): Collection
-    {
-        $today = now()->toDateString();
-        $statusesToFetch = [0, 1]; // 0=Unconfirmed, 1=Confirmed
+{
+    $today = now()->toDateString();
+    $statusesToFetch = [0, 1]; // We fetch both unconfirmed and confirmed appointments
 
-        return $this->connection->table('appointment')
-            ->whereDate('app_dt', $today)
-            ->whereTime('from_tm', '>=', $startTime)
-            ->whereTime('from_tm', '<', $endTime)
-            ->whereIn('app_status', $statusesToFetch)
-            ->select(
-                'id as appointment_id',        // <-- THE CRITICAL FIX: Use the 'id' column
-                'pt_name as full_name',
-                'mobile',
-                'from_tm as appointment_time',
-                'doc_nm as doctor_name',
-                'app_dt as appointment_date', 
-                'app_status'
-            )
-            ->get();
-    }
+    return $this->connection->table('appointment')
+        ->whereDate('app_dt', $today)
+        ->whereTime('from_tm', '>=', $startTime)
+        ->whereTime('from_tm', '<', $endTime)
+        ->whereIn('app_status', $statusesToFetch)
+        ->select(
+            'id as appointment_id',
+            'pt_name as full_name',
+            'mobile',
+            'from_tm as appointment_time',
+            'doc_nm as doctor_name',
+            'app_dt as appointment_date', 
+            'app_status'
+        )
+        ->get();
+}
     
 
 

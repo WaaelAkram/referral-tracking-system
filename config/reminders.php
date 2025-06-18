@@ -3,12 +3,17 @@
 <?php
 
 return [
-    // How many minutes before the appointment to send the reminder.
-    'window_minutes' => 60,
+    'windows' => [
+        // For Confirmed (status 1) appointments, send reminder 60 minutes before.
+        1 => env('REMINDER_WINDOW_CONFIRMED_MINUTES', 120),
+
+        // For Unconfirmed (status 0) appointments, send reminder 120 minutes before.
+        0 => env('REMINDER_WINDOW_UNCONFIRMED_MINUTES', 240),
+    ],
 
     // Message template for CONFIRMED (status 1) appointments.
-    'template_confirmed' => "Hello {patient_name},\n\nThis is a friendly reminder of your appointment with {doctor_name} on {appointment_date} at {appointment_time}.\n\nWe look forward to seeing you!",
+    'template_confirmed' => "مرحبا {patient_name},\n\nنود تذكيركم بالموعد لدى مركز داف لطب الاسنان عند{doctor_name} بتاريخ {appointment_date} الساعة {appointment_time}.\n\nشكرا لكم",
 
     // Message template for UNCONFIRMED (status 0) appointments.
-    'template_unconfirmed' => "Hello {patient_name},\n\nYour appointment with {doctor_name} is scheduled for {appointment_date} at {appointment_time}. Please reply or call us to confirm.\n\nThank you.",
+    'template_unconfirmed' => "مرحبا {patient_name},\n\nموعدك لدى مركز داف لطب الاسنان عند {doctor_name} بتاريخ {appointment_date} الساعة {appointment_time}. يرجى تاكيد الموعد عبر هذه المحادثة او الاتصال.\n\nشكرا لكم.",
 ];

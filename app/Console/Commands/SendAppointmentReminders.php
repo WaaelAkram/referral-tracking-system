@@ -26,46 +26,74 @@ class SendAppointmentReminders extends Command
     /**
      * The main logic for the command.
      */
-    public function handle(ClinicPatientGateway $gateway): int
-    {
-        $reminderWindowMinutes = config('reminders.window_minutes', 60);
-        $now = now();
+    // In app/Console/Commands/SendAppointmentReminders.php
 
-        // --- NEW, MORE ROBUST LOGIC ---
-        // We look for all appointments from right now up to our reminder window limit.
-        $startTime = $now->copy()->format('H:i:s');
-        $endTime = $now->copy()->addMinutes($reminderWindowMinutes)->format('H:i:s');
+// ... (your use statements at the top)
 
-        // Fetch all potentially eligible appointments in the entire window.
-        $appointments = $gateway->getAppointmentsInWindow($startTime, $endTime);
+public function handle(ClinicPatientGateway $gateway): int
+{
+    $reminderWindows = config('reminders.windows');
+    $now = now();
 
-        if ($appointments->isEmpty()) {
-            $this->info("No appointments found in the upcoming $reminderWindowMinutes minute window.");
-            return self::SUCCESS;
-        }
+    // 1. Find the largest reminder window to define our database query scope.
+    if (empty($reminderWindows)) {
+        $this->error('Reminder windows are not configured correctly in config/reminders.php.');
+        return self::FAILURE;
+    }
+    $maxWindowMinutes = max($reminderWindows);
+    $this->info("Max reminder window is {$maxWindowMinutes} minutes.");
 
-        // Get the IDs of all appointments we found from the clinic DB.
-        $appointmentIdsToCheck = $appointments->pluck('appointment_id')->all();
+    // 2. Fetch all potentially eligible appointments in the largest possible window.
+    $startTime = $now->copy()->format('H:i:s');
+    $endTime = $now->copy()->addMinutes($maxWindowMinutes)->format('H:i:s');
+    $appointmentsInMaxWindow = $gateway->getAppointmentsInWindow($startTime, $endTime);
 
-        // Ask our *local* database which of these we have already processed.
-        $sentIds = SentReminder::whereIn('appointment_id', $appointmentIdsToCheck)
-            ->pluck('appointment_id')
-            ->all();
-
-        $dispatchedCount = 0;
-        foreach ($appointments as $appointment) {
-            // The main condition: if the current appointment's ID is NOT in the list of sent IDs...
-            if (!in_array($appointment->appointment_id, $sentIds)) {
-                // ...then we need to send a reminder.
-                SendSingleReminder::dispatch($appointment);
-                $dispatchedCount++;
-            }
-        }
-
-        $logMessage = "Checked {$appointments->count()} appointments. Dispatched {$dispatchedCount} new reminder jobs.";
-        $this->info($logMessage);
-        Log::info($logMessage);
-
+    if ($appointmentsInMaxWindow->isEmpty()) {
+        $this->info("No appointments found in the upcoming {$maxWindowMinutes} minute window.");
         return self::SUCCESS;
     }
+
+    // 3. Filter out appointments we've already sent reminders for.
+    $appointmentIdsToCheck = $appointmentsInMaxWindow->pluck('appointment_id')->all();
+    $sentIds = SentReminder::whereIn('appointment_id', $appointmentIdsToCheck)
+        ->pluck('appointment_id')
+        ->all();
+    
+    $unsentAppointments = $appointmentsInMaxWindow->whereNotIn('appointment_id', $sentIds);
+
+    if ($unsentAppointments->isEmpty()) {
+        $this->info("All upcoming appointments have already been reminded.");
+        return self::SUCCESS;
+    }
+
+    $dispatchedCount = 0;
+    // 4. Iterate through only the unsent appointments and check their specific window.
+    foreach ($unsentAppointments as $appointment) {
+        $status = $appointment->app_status;
+        
+        // Get the specific reminder window for this appointment's status.
+        // If a status from the DB doesn't exist in our config, we skip it.
+        if (!isset($reminderWindows[$status])) {
+            continue;
+        }
+        $specificWindow = $reminderWindows[$status];
+
+        // Check if the appointment time is within its specific window.
+        $appointmentTime = Carbon::parse($appointment->appointment_time);
+        
+        // The check is from NOW up to the specific window limit.
+        if ($appointmentTime->isBetween($now, $now->copy()->addMinutes($specificWindow))) {
+            // This appointment is within its allowed time frame. Dispatch the job.
+            SendSingleReminder::dispatch($appointment);
+            $dispatchedCount++;
+            $this->line(" -> Queued reminder for appointment #{$appointment->appointment_id} (Status: {$status}, Window: {$specificWindow} mins)");
+        }
+    }
+
+    $logMessage = "Checked {$appointmentsInMaxWindow->count()} appointments. Dispatched {$dispatchedCount} new reminder jobs.";
+    $this->info($logMessage);
+    Log::info($logMessage);
+
+    return self::SUCCESS;
+}
 }

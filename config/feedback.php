@@ -1,13 +1,30 @@
 <?php
 
 return [
-    // --- NEW, SIMPLER CONFIG ---
+    /*
+    |--------------------------------------------------------------------------
+    | Feedback Request Timings
+    |--------------------------------------------------------------------------
+    */
     // Start looking for appointments that ended this many hours ago.
-    'delay_hours_start' => 2,
+    'delay_hours_start' => 1,
     // Stop looking for appointments that ended this many hours ago.
-    'delay_hours_end' => 3,
+    'delay_hours_end' => 2,
 
-    // --- REMAINDER OF FILE IS THE SAME ---
-    'template' => "Hello {patient_name}, we hope your visit with {doctor_name} today went well. We'd love to hear your feedback. Please share your thoughts here: {feedback_link}",
+    /*
+    |--------------------------------------------------------------------------
+    | Feedback Request Template
+    |--------------------------------------------------------------------------
+    */
+    'template' => "مرحبا {patient_name}، نتمنى ان زيارتكم لدى {doctor_name} كانت ممتازة. يهمنا معرفة رأيكم وملاحظاتكم. يرجى التقييم عبر الرابط: {feedback_link}",
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Feedback URL
+    |--------------------------------------------------------------------------
+    |
+    | The link that will be inserted into the {feedback_link} placeholder.
+    |
+    */
     'feedback_url' => 'https://g.page/r/CbnDhQAZmx01EAE/review',
 ];
