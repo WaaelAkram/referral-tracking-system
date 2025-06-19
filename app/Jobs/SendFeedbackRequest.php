@@ -2,7 +2,7 @@
 namespace App\Jobs;
 
 use App\Models\SentFeedbackRequest;
-use App\Services\WhatsappService; // <-- Import the service
+use App\Services\WhatsappService; // <-- IMPORT THE SERVICE
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,29 +21,26 @@ class SendFeedbackRequest implements ShouldQueue
         $this->appointment = $appointment;
     }
 
-    public function handle(WhatsappService $whatsapp): void // <-- Inject the service
+    public function handle(WhatsappService $whatsapp): void // <-- INJECT THE SERVICE
     {
-        // Get the template and URL from the config file
         $messageTemplate = config('feedback.template');
         $feedbackLink = config('feedback.feedback_url');
 
-        // Prepare placeholder values
         $patientName = $this->appointment->full_name;
-        $doctorName = $this->appointment->doctor_name ?? 'المركز'; // Default to "the center"
+        $doctorName = $this->appointment->doctor_name ?? 'المركز';
 
-        // Replace placeholders
         $message = str_replace(
             ['{patient_name}', '{doctor_name}', '{feedback_link}'],
             [$patientName, $doctorName, $feedbackLink],
             $messageTemplate
         );
 
-        // --- Send via WhatsApp Service ---
+        // --- THIS IS THE KEY CHANGE ---
+        // Send via WhatsApp Service
         try {
             $success = $whatsapp->sendMessage($this->appointment->mobile, $message);
             
             if ($success) {
-                // Log that the request was sent
                 SentFeedbackRequest::create([
                     'appointment_id' => $this->appointment->appointment_id,
                     'sent_at' => now(),
@@ -53,5 +50,6 @@ class SendFeedbackRequest implements ShouldQueue
         } catch (\Exception $e) {
             Log::critical("FEEDBACK_SYSTEM_ERROR: Could not process job for appointment ID {$this->appointment->appointment_id}: " . $e->getMessage());
         }
+        // --- END OF CHANGE ---
     }
 }

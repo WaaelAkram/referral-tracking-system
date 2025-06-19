@@ -8,89 +8,85 @@ use App\Jobs\SendSingleReminder;
 use App\Models\SentReminder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class SendAppointmentReminders extends Command
 {
-    /**
-     * The name and signature of the console command.
-     * @var string
-     */
     protected $signature = 'reminders:send';
-
-    /**
-     * The console command description.
-     * @var string
-     */
     protected $description = 'Finds all upcoming appointments within the reminder window and sends notifications.';
 
-    /**
-     * The main logic for the command.
-     */
-    // In app/Console/Commands/SendAppointmentReminders.php
+    public function handle(ClinicPatientGateway $gateway): int
+    {
+        $reminderWindows = config('reminders.windows');
+        $now = now();
 
-// ... (your use statements at the top)
+        $maxWindowMinutes = max($reminderWindows);
+        $this->info("Max reminder window is {$maxWindowMinutes} minutes.");
 
-public function handle(ClinicPatientGateway $gateway): int
-{
-    $reminderWindows = config('reminders.windows');
-    $now = now();
+        $startTime = $now->copy()->format('H:i:s');
+        $endTime = $now->copy()->addMinutes($maxWindowMinutes)->format('H:i:s');
+        $appointmentsInMaxWindow = $gateway->getAppointmentsInWindow($startTime, $endTime);
 
-    // ... (the logic to fetch appointments remains the same) ...
-    $maxWindowMinutes = max($reminderWindows);
-    $this->info("Max reminder window is {$maxWindowMinutes} minutes.");
+        if ($appointmentsInMaxWindow->isEmpty()) {
+            $this->info("No appointments found in the upcoming {$maxWindowMinutes} minute window.");
+            return self::SUCCESS;
+        }
 
-    $startTime = $now->copy()->format('H:i:s');
-    $endTime = $now->copy()->addMinutes($maxWindowMinutes)->format('H:i:s');
-    $appointmentsInMaxWindow = $gateway->getAppointmentsInWindow($startTime, $endTime);
+        $appointmentIdsToCheck = $appointmentsInMaxWindow->pluck('appointment_id')->all();
+        $sentIds = SentReminder::whereIn('appointment_id', $appointmentIdsToCheck)
+            ->pluck('appointment_id')
+            ->all();
+        
+        $unsentAppointments = $appointmentsInMaxWindow->whereNotIn('appointment_id', $sentIds);
 
-    if ($appointmentsInMaxWindow->isEmpty()) {
-        $this->info("No appointments found in the upcoming {$maxWindowMinutes} minute window.");
+        if ($unsentAppointments->isEmpty()) {
+            $this->info("All upcoming appointments have already been reminded.");
+            return self::SUCCESS;
+        }
+
+        $dispatchedCount = 0;
+        foreach ($unsentAppointments as $appointment) {
+            
+            if (empty($appointment->mobile)) {
+                Log::warning("Skipping reminder for appointment #{$appointment->appointment_id} due to missing mobile number.");
+                continue;
+            }
+            
+            // Parse both timestamps using Carbon for accurate comparison
+            $appointmentTime = Carbon::parse($appointment->appointment_date . ' ' . $appointment->appointment_time);
+            $creationTime = Carbon::parse($appointment->created_at);
+
+            // --- THIS IS THE NEW LOGIC ---
+            // Check if the appointment was created less than an hour before its start time
+            if ($creationTime->diffInMinutes($appointmentTime) < 120) {
+                $this->line(".. Skipping last-minute appointment #{$appointment->appointment_id}. Booked too close to appointment time.");
+                continue; // Skip this appointment and go to the next one
+            }
+            // --- END OF NEW LOGIC ---
+
+            if ($dispatchedCount > 0) {
+                $delaySeconds = rand(40, 120);
+                $this->info("... waiting for {$delaySeconds} seconds before next message...");
+                sleep($delaySeconds);
+            }
+
+            $status = $appointment->app_status;
+            if (!isset($reminderWindows[$status])) {
+                continue;
+            }
+            $specificWindow = $reminderWindows[$status];
+
+            if ($appointmentTime->isBetween($now, $now->copy()->addMinutes($specificWindow))) {
+                SendSingleReminder::dispatch($appointment);
+                $dispatchedCount++;
+                $this->line(" -> Queued reminder for appointment #{$appointment->appointment_id} (Status: {$status}, Window: {$specificWindow} mins)");
+            }
+        }
+
+        $logMessage = "Checked {$appointmentsInMaxWindow->count()} appointments. Dispatched {$dispatchedCount} new reminder jobs.";
+        $this->info($logMessage);
+        Log::info($logMessage);
+
         return self::SUCCESS;
     }
-
-    $appointmentIdsToCheck = $appointmentsInMaxWindow->pluck('appointment_id')->all();
-    $sentIds = SentReminder::whereIn('appointment_id', $appointmentIdsToCheck)
-        ->pluck('appointment_id')
-        ->all();
-    
-    $unsentAppointments = $appointmentsInMaxWindow->whereNotIn('appointment_id', $sentIds);
-
-    if ($unsentAppointments->isEmpty()) {
-        $this->info("All upcoming appointments have already been reminded.");
-        return self::SUCCESS;
-    }
-
-    $dispatchedCount = 0;
-    foreach ($unsentAppointments as $appointment) {
-        
-        // --- NEW: ADD DELAY BEFORE PROCESSING EACH APPOINTMENT ---
-        if ($dispatchedCount > 0) { // No need to sleep before the very first one
-            $delaySeconds = rand(40, 120);
-            $this->info("... waiting for {$delaySeconds} seconds before next message...");
-            sleep($delaySeconds);
-        }
-        // --- END OF NEW CODE ---
-
-        $status = $appointment->app_status;
-        
-        if (!isset($reminderWindows[$status])) {
-            continue;
-        }
-        $specificWindow = $reminderWindows[$status];
-
-        $appointmentTime = Carbon::parse($appointment->appointment_time);
-        
-        if ($appointmentTime->isBetween($now, $now->copy()->addMinutes($specificWindow))) {
-            SendSingleReminder::dispatch($appointment);
-            $dispatchedCount++;
-            $this->line(" -> Queued reminder for appointment #{$appointment->appointment_id} (Status: {$status}, Window: {$specificWindow} mins)");
-        }
-    }
-
-    $logMessage = "Checked {$appointmentsInMaxWindow->count()} appointments. Dispatched {$dispatchedCount} new reminder jobs.";
-    $this->info($logMessage);
-    Log::info($logMessage);
-
-    return self::SUCCESS;
-}
 }

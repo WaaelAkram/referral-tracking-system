@@ -67,27 +67,28 @@ class ClinicPatientGateway
             ->groupBy('pt_id')
             ->get()->keyBy('pt_id');
     }
-   public function getAppointmentsInWindow(string $startTime, string $endTime): Collection
-{
-    $today = now()->toDateString();
-    $statusesToFetch = [0, 1]; // We fetch both unconfirmed and confirmed appointments
+    public function getAppointmentsInWindow(string $startTime, string $endTime): Collection
+    {
+        $today_yyyymmdd = now()->format('Y/m/d'); 
+        $statusesToFetch = [0, 1];
 
-    return $this->connection->table('appointment')
-        ->whereDate('app_dt', $today)
-        ->whereTime('from_tm', '>=', $startTime)
-        ->whereTime('from_tm', '<', $endTime)
-        ->whereIn('app_status', $statusesToFetch)
-        ->select(
-            'id as appointment_id',
-            'pt_name as full_name',
-            'mobile',
-            'from_tm as appointment_time',
-            'doc_nm as doctor_name',
-            'app_dt as appointment_date', 
-            'app_status'
-        )
-        ->get();
-}
+        return $this->connection->table('appointment')
+            ->where('app_dt', $today_yyyymmdd) 
+            ->whereTime('from_tm', '>=', $startTime)
+            ->whereTime('from_tm', '<', $endTime)
+            ->whereIn('app_status', $statusesToFetch)
+            ->select(
+                'id as appointment_id',
+                'pt_name as full_name',
+                'mobile',
+                'from_tm as appointment_time',
+                'doc_nm as doctor_name',
+                'app_dt as appointment_date', 
+                'app_status',
+                'trans_dt as created_at' // <-- THIS IS THE REQUIRED CHANGE
+            )
+            ->get();
+    }
     
 
 
