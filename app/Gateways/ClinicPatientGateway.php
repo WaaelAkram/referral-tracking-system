@@ -64,19 +64,39 @@ class ClinicPatientGateway
      *
      * @return \Illuminate\Support\Collection
      */
-    public function getNewVsReturningPatients(int $days = 30): \Illuminate\Support\Collection
+     public function getNewVsReturningPatients(int $days = 30): \Illuminate\Support\Collection
     {
         $startDate = now()->subDays($days)->format('Y-m-d');
         $endDate = now()->format('Y-m-d');
 
+        // ================== THIS IS THE FINAL FIX ==================
+        // This query redefines the logic to be exhaustive. An appointment
+        // is either "returning" or it falls into the "new" bucket. There are
+        // no other possibilities, ensuring the total count will always match.
+
         $sql = "
             SELECT
                 CONVERT(VARCHAR(10), a.app_dt, 120) as date,
-                SUM(CASE WHEN CONVERT(date, a.app_dt) = CONVERT(date, p.trans_dt) THEN 1 ELSE 0 END) as new_patients,
-                SUM(CASE WHEN CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt) THEN 1 ELSE 0 END) as returning_patients
+
+                SUM(
+                    CASE
+                        WHEN p.id IS NOT NULL AND CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt)
+                        THEN 1
+                        ELSE 0
+                    END
+                ) as returning_patients,
+
+                SUM(
+                    CASE
+                        WHEN p.id IS NULL OR CONVERT(date, a.app_dt) <= CONVERT(date, p.trans_dt)
+                        THEN 1
+                        ELSE 0
+                    END
+                ) as new_patients
+
             FROM
                 appointment as a
-            INNER JOIN
+            LEFT JOIN
                 patient as p ON a.pt_id = p.id
             WHERE
                 CONVERT(date, a.app_dt) >= ?
@@ -86,8 +106,9 @@ class ClinicPatientGateway
             ORDER BY
                 date ASC;
         ";
+        // ======================= END OF FIX ========================
 
-        return collect(\Illuminate\Support\Facades\DB::connection('mssql_clinic')->select($sql, [$startDate, $endDate]));
+        return collect(DB::connection('mssql_clinic')->select($sql, [$startDate, $endDate]));
     }
 
     /**
@@ -234,5 +255,67 @@ public function getRevenuePerDoctor(int $days = 30): \Illuminate\Support\Collect
                 'to_tm'
             )
             ->get();
+    }
+     public function getAverageRevenuePerAppointment(int $days = 30): float
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+
+        // Get total revenue for the period
+        $totalRevenue = $this->connection->table('invoice_h')
+            ->where(DB::raw("CONVERT(date, inv_dt)"), '>=', $startDate)
+            ->sum(DB::raw('cash + span'));
+
+        // Get total number of appointments for the period
+        $totalAppointments = $this->connection->table('appointment')
+            ->where(DB::raw("CONVERT(date, app_dt)"), '>=', $startDate)
+            ->count();
+            
+        if ($totalAppointments === 0) {
+            return 0.0;
+        }
+
+        return $totalRevenue / $totalAppointments;
+    }
+
+    // --- NEW METHOD 2: PATIENT RETENTION RATE ---
+    /**
+     * Calculates the patient retention rate over a given period.
+     *
+     * @param int $days The number of days to look back.
+     * @return float The retention rate as a percentage.
+     */
+    public function getPatientRetentionRate(int $days = 30): float
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+        $endDate = now()->format('Y-m-d');
+
+        // This query is similar to getNewVsReturningPatients but without the daily grouping
+        $sql = "
+            SELECT
+                SUM(
+                    CASE
+                        WHEN p.id IS NOT NULL AND CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt)
+                        THEN 1
+                        ELSE 0
+                    END
+                ) as returning_patients,
+                
+                SUM(1) as total_appointments
+            FROM
+                appointment as a
+            LEFT JOIN
+                patient as p ON a.pt_id = p.id
+            WHERE
+                CONVERT(date, a.app_dt) >= ?
+                AND CONVERT(date, a.app_dt) <= ?;
+        ";
+
+        $result = DB::connection('mssql_clinic')->selectOne($sql, [$startDate, $endDate]);
+
+        if (!$result || $result->total_appointments == 0) {
+            return 0.0;
+        }
+
+        return ($result->returning_patients / $result->total_appointments) * 100;
     }
 }

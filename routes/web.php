@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PublicDashboardController;
 // ... (all your route definitions)
 Route::get('/clinic-dashboard', [PublicDashboardController::class, 'index'])->name('public.dashboard');
+Route::get('/clinic-dashboard/ar', [PublicDashboardController::class, 'index_ar'])->name('public.dashboard.ar');
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [ReferralController::class, 'home'])->name('dashboard');
     Route::post('/referral/eligibility/check', [ReferralEligibilityController::class, 'check'])->name('referral.eligibility.check');

@@ -19,18 +19,35 @@
         </header>
 
         <!-- ========== KPI Cards ========== -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+            <!-- Today's Revenue Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Today's Revenue</h3>
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['kpis']->total_revenue_today ?? 0, 2) }} SAR</p>
             </div>
+            
+            <!-- NEW: Average Revenue Per Appointment Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
-                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">New Patients (This Month)</h3>
-                <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ $data['kpis']->new_patients_this_month ?? 0 }}</p>
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Revenue / Appt.</h3>
+                <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['arpa'] ?? 0, 2) }} SAR</p>
             </div>
+
+            <!-- Appointments Today Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Appointments Today</h3>
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ $data['kpis']->appointments_today ?? 0 }}</p>
+            </div>
+
+            <!-- NEW: Patient Retention Rate Card -->
+            <div class="bg-white p-6 shadow rounded-lg text-center">
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Retention Rate (30d)</h3>
+                <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['retentionRate'] ?? 0, 1) }}%</p>
+            </div>
+
+            <!-- New Patients Card -->
+            <div class="bg-white p-6 shadow rounded-lg text-center">
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">New Patients (This Month)</h3>
+                <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ $data['kpis']->new_patients_this_month ?? 0 }}</p>
             </div>
         </div>
 
@@ -109,7 +126,11 @@
                     }],
                     chart: { type: 'bar', height: 350, stacked: true, toolbar: { show: false } },
                     plotOptions: { bar: { horizontal: false } },
-                    xaxis: { type: 'datetime', categories: patientMixData.map(item => item.date), labels: { style: { colors: '#6b7280' } } },
+                    xaxis: { 
+                        type: 'category', 
+                        categories: patientMixData.map(item => item.date), 
+                        labels: { style: { colors: '#6b7280' } } 
+                    },
                     yaxis: { labels: { style: { colors: '#6b7280' } } },
                     legend: { position: 'top' },
                     fill: { opacity: 1 }
