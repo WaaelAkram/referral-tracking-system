@@ -2,204 +2,246 @@
 
 namespace App\Gateways;
 
-use Illuminate\Support\Facades\DB; // <-- THIS IS THE REQUIRED LINE
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Query\Builder;
 use stdClass;
 
 /**
  * A gateway to interact with the external clinic patient database.
- * All logic for querying the 'mysql_referral_test' connection lives here.
+ * All logic for querying the 'mssql_clinic' connection lives here.
  */
 class ClinicPatientGateway
 {
-    /**
-     * Gets key performance indicators (KPIs) for the clinic.
-     * 
-     * - Total revenue today
-     * - New patients this month
-     * - Appointments today
-     *
-     * @return \stdClass
-     */
-   public function getKpiData(): \stdClass
-    {
-        // Use CONVERT to get the date in a comparable format without time.
-        $today = now()->format('Y-m-d');
-        $startOfMonth = now()->startOfMonth()->format('Y-m-d');
-
-        $kpis = $this->connection->query()
-            ->select(
-                \Illuminate\Support\Facades\DB::raw("(SELECT SUM(cash + span) FROM invoice_h WHERE CONVERT(date, inv_dt) = '{$today}') as total_revenue_today"),
-                \Illuminate\Support\Facades\DB::raw("(SELECT COUNT(id) FROM patient WHERE CONVERT(date, trans_dt) >= '{$startOfMonth}') as new_patients_this_month"),
-                \Illuminate\Support\Facades\DB::raw("(SELECT COUNT(id) FROM appointment WHERE CONVERT(date, app_dt) = '{$today}') as appointments_today")
-            )
-            ->first();
-
-        return $kpis ?? new \stdClass();
-    }
-
-    /**
-     * Gets total revenue for each of the last 12 months.
-     *
-     * @return \Illuminate\Support\Collection
-     */
-    public function getMonthlyRevenue(): \Illuminate\Support\Collection
-    {
-        $startDate = now()->subMonths(12)->startOfMonth()->format('Y-m-d H:i:s');
-
-        return $this->connection->table('invoice_h')
-            ->select(
-                // --- FIX: Using CONVERT and string manipulation for YYYY-MM format ---
-                \Illuminate\Support\Facades\DB::raw("CONVERT(VARCHAR(7), inv_dt, 120) as month"),
-                \Illuminate\Support\Facades\DB::raw('SUM(cash + span) as total_revenue')
-            )
-            ->where('inv_dt', '>=', $startDate)
-            ->groupBy(\Illuminate\Support\Facades\DB::raw("CONVERT(VARCHAR(7), inv_dt, 120)"))
-            ->orderBy('month', 'asc')
-            ->get();
-    }
-
-    /**
-     * Gets a count of new vs returning patients for a given period.
-     *
-     * @return \Illuminate\Support\Collection
-     */
-     public function getNewVsReturningPatients(int $days = 30): \Illuminate\Support\Collection
-    {
-        $startDate = now()->subDays($days)->format('Y-m-d');
-        $endDate = now()->format('Y-m-d');
-
-        // ================== THIS IS THE FINAL FIX ==================
-        // This query redefines the logic to be exhaustive. An appointment
-        // is either "returning" or it falls into the "new" bucket. There are
-        // no other possibilities, ensuring the total count will always match.
-
-        $sql = "
-            SELECT
-                CONVERT(VARCHAR(10), a.app_dt, 120) as date,
-
-                SUM(
-                    CASE
-                        WHEN p.id IS NOT NULL AND CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt)
-                        THEN 1
-                        ELSE 0
-                    END
-                ) as returning_patients,
-
-                SUM(
-                    CASE
-                        WHEN p.id IS NULL OR CONVERT(date, a.app_dt) <= CONVERT(date, p.trans_dt)
-                        THEN 1
-                        ELSE 0
-                    END
-                ) as new_patients
-
-            FROM
-                appointment as a
-            LEFT JOIN
-                patient as p ON a.pt_id = p.id
-            WHERE
-                CONVERT(date, a.app_dt) >= ?
-                AND CONVERT(date, a.app_dt) <= ?
-            GROUP BY
-                CONVERT(VARCHAR(10), a.app_dt, 120)
-            ORDER BY
-                date ASC;
-        ";
-        // ======================= END OF FIX ========================
-
-        return collect(DB::connection('mssql_clinic')->select($sql, [$startDate, $endDate]));
-    }
-
-    /**
-     * Gets total revenue generated per doctor for a given period.
-     *
-     * @return \Illuminate\Support\Collection
-     */
-public function getRevenuePerDoctor(int $days = 30): \Illuminate\Support\Collection
-    {
-        // --- CHANGE #1: Prepare the date outside the query for cleaner binding ---
-        $startDate = now()->subDays($days)->format('Y-m-d');
-
-        // This raw SQL is the exact query you confirmed works.
-        // The `?` is a placeholder for a parameter binding, which is safer.
-        $sql = "
-            SELECT TOP 10
-                d.name_a as doctor_name,
-                SUM(i.cash + i.span) as total_revenue
-            FROM
-                invoice_h as i
-            JOIN
-                doctor as d ON i.doc_id = d.id
-            WHERE
-                CONVERT(date, i.inv_dt) >= ?
-                AND d.name_a IS NOT NULL
-                AND d.name_a <> ''
-            GROUP BY
-                d.name_a
-            ORDER BY
-                total_revenue DESC;
-        ";
-
-        // --- CHANGE #2: Execute the raw query using select() with bindings ---
-        // This is the most reliable way to run a complex query across drivers.
-        return collect(\Illuminate\Support\Facades\DB::connection('mssql_clinic')->select($sql, [$startDate]));
-    }
     protected $connection;
 
     public function __construct()
     {
-        // Set the database connection for this gateway
         $this->connection = DB::connection('mssql_clinic');
     }
 
     /**
-     * Find a patient by their mobile number.
+     * A private helper to get a unified stream of all revenue transactions.
      */
-    public function findPatientByMobile(string $mobile): ?stdClass
+    private function _getTotalRevenueQuery(): Builder
     {
-        return $this->connection->table('patient')->where('mobile', $mobile)->first();
+        $invoiceQuery = $this->connection->table('invoice_h')
+            ->select(
+                'inv_dt as transaction_date',
+                DB::raw('cash + span as amount'),
+                'pt_id',
+                'doc_id'
+            );
+
+        $receiptQuery = $this->connection->table('receipts')
+            ->select(
+                'rcpt_dt as transaction_date',
+                'amount',
+                'pt_id',
+                'doc_id'
+            );
+
+        return $invoiceQuery->unionAll($receiptQuery);
     }
 
-    /**
-     * Find a patient by their ID.
-     */
-    public function findPatientById(int $patientId): ?stdClass
+    public function getKpiData(): stdClass
     {
-        return $this->connection->table('patient')->where('id', $patientId)->first();
+        $today = now()->format('Y-m-d');
+        $startOfMonth = now()->startOfMonth()->format('Y-m-d');
+
+        // FIXED: Use the subquery pattern to filter the UNION result
+        $unifiedQuery = $this->_getTotalRevenueQuery();
+        $totalRevenueToday = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedQuery)
+            ->where(DB::raw("CONVERT(date, transaction_date)"), '=', $today)
+            ->sum('amount');
+        
+        $newPatientsThisMonth = $this->connection->table('patient')->where(DB::raw("CONVERT(date, trans_dt)"), '>=', $startOfMonth)->count('id');
+        $appointmentsToday = $this->connection->table('appointment')->where(DB::raw("CONVERT(date, app_dt)"), '=', $today)->count('id');
+
+        return (object)[
+            'total_revenue_today' => $totalRevenueToday,
+            'new_patients_this_month' => $newPatientsThisMonth,
+            'appointments_today' => $appointmentsToday,
+        ];
+    }
+    
+    public function getMonthlyRevenue(): Collection
+    {
+        $startDate = now()->subMonths(12)->startOfMonth()->format('Y-m-d');
+        
+        $unifiedRevenueQuery = $this->_getTotalRevenueQuery();
+        $unifiedRevenue = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedRevenueQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedRevenueQuery);
+
+        return $unifiedRevenue
+            ->select(
+                DB::raw("CONVERT(VARCHAR(7), transaction_date, 120) as month"),
+                DB::raw('SUM(amount) as total_revenue')
+            )
+            ->where(DB::raw("CONVERT(date, transaction_date)"), '>=', $startDate)
+            ->groupBy(DB::raw("CONVERT(VARCHAR(7), transaction_date, 120)"))
+            ->orderBy('month', 'asc')
+            ->get();
     }
 
-    /**
-     * Get the sum of all payments for a given patient ID.
-     */
+    public function getRevenuePerDoctor(int $days = 30): Collection
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+        
+        $unifiedRevenueQuery = $this->_getTotalRevenueQuery();
+        $unifiedRevenue = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedRevenueQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedRevenueQuery);
+        
+        return $unifiedRevenue
+            ->join('doctor as d', 'unified_revenue.doc_id', '=', 'd.id')
+            ->select(
+                'd.name_a as doctor_name',
+                DB::raw('SUM(unified_revenue.amount) as total_revenue')
+            )
+            ->where(DB::raw("CONVERT(date, unified_revenue.transaction_date)"), '>=', $startDate)
+            ->whereNotNull('d.name_a')
+            ->where('d.name_a', '<>', '')
+            ->groupBy('d.name_a')
+            ->orderByDesc('total_revenue')
+            ->take(10)
+            ->get();
+    }
+    
+    public function getAverageRevenuePerAppointment(int $days = 30): float
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+
+        // FIXED: Use the subquery pattern here as well
+        $unifiedQuery = $this->_getTotalRevenueQuery();
+        $totalRevenue = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedQuery)
+            ->where(DB::raw("CONVERT(date, transaction_date)"), '>=', $startDate)
+            ->sum('amount');
+
+        $totalAppointments = $this->connection->table('appointment')
+            ->where(DB::raw("CONVERT(date, app_dt)"), '>=', $startDate)
+            ->count();
+            
+        if ($totalAppointments === 0) {
+            return 0.0;
+        }
+
+        return $totalRevenue / $totalAppointments;
+    }
+
+    public function getAverageRevenuePerPatient(int $days = 30): float
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+
+        $unifiedRevenueQuery = $this->_getTotalRevenueQuery();
+        $unifiedRevenue = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedRevenueQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedRevenueQuery);
+        
+        $revenueData = $unifiedRevenue
+            ->where(DB::raw("CONVERT(date, transaction_date)"), '>=', $startDate)
+            ->select(
+                DB::raw('SUM(amount) as total_revenue'),
+                DB::raw('COUNT(DISTINCT pt_id) as unique_patients')
+            )
+            ->first();
+
+        if (!$revenueData || $revenueData->unique_patients == 0) {
+            return 0.0;
+        }
+
+        return $revenueData->total_revenue / $revenueData->unique_patients;
+    }
+    
+    public function getPatientRetentionRate(int $days = 30): float
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+        $endDate = now()->format('Y-m-d');
+
+        $sql = "
+            SELECT
+                SUM(CASE WHEN p.id IS NOT NULL AND CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt) THEN 1 ELSE 0 END) as returning_patients,
+                SUM(1) as total_appointments
+            FROM appointment as a
+            LEFT JOIN patient as p ON a.pt_id = p.id
+            WHERE CONVERT(date, a.app_dt) >= ? AND CONVERT(date, a.app_dt) <= ?;
+        ";
+
+        $result = DB::connection('mssql_clinic')->selectOne($sql, [$startDate, $endDate]);
+
+        if (!$result || $result->total_appointments == 0) {
+            return 0.0;
+        }
+
+        return ($result->returning_patients / $result->total_appointments) * 100;
+    }
+
     public function getTotalPaidForPatient(int $patientId): float
     {
-        return $this->connection->table('invoice_h')
-            ->where('pt_id', $patientId)
-            ->sum('net_amnt') ?? 0.0;
-    }
-
-    // --- YOUR NEW, CORRECT METHODS ---
-
-    public function findPatientsByIds(array $patientIds): Collection
-    {
-        if (empty($patientIds)) {
-            return collect(); // Return an empty collection if no IDs are provided
-        }
-        return $this->connection->table('patient')->whereIn('id', $patientIds)->get()->keyBy('id');
+        // FIXED: This method now correctly gets total paid from both tables
+        $unifiedRevenueQuery = $this->_getTotalRevenueQuery();
+        $unifiedRevenue = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedRevenueQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedRevenueQuery);
+        
+        return $unifiedRevenue->where('pt_id', $patientId)->sum('amount') ?? 0.0;
     }
 
     public function getTotalPaidForPatients(array $patientIds): Collection
     {
         if (empty($patientIds)) {
-            return collect(); // Return an empty collection if no IDs are provided
+            return collect();
         }
-        return $this->connection->table('invoice_h')
+        
+        // FIXED: This method now correctly gets total paid from both tables
+        $unifiedRevenueQuery = $this->_getTotalRevenueQuery();
+        $unifiedRevenue = DB::connection('mssql_clinic')->table(DB::raw("({$unifiedRevenueQuery->toSql()}) as unified_revenue"))
+            ->mergeBindings($unifiedRevenueQuery);
+        
+        return $unifiedRevenue
             ->whereIn('pt_id', $patientIds)
-            ->select('pt_id', DB::raw('SUM(net_amnt) as total_paid'))
+            ->select('pt_id', DB::raw('SUM(amount) as total_paid'))
             ->groupBy('pt_id')
             ->get()->keyBy('pt_id');
     }
+    
+    // --- The following methods did not need changes as they don't involve revenue ---
+
+    public function getNewVsReturningPatients(int $days = 30): \Illuminate\Support\Collection
+    {
+        $startDate = now()->subDays($days)->format('Y-m-d');
+        $endDate = now()->format('Y-m-d');
+        $sql = "
+            SELECT
+                CONVERT(VARCHAR(10), a.app_dt, 120) as date,
+                SUM(CASE WHEN p.id IS NOT NULL AND CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt) THEN 1 ELSE 0 END) as returning_patients,
+                SUM(CASE WHEN p.id IS NULL OR CONVERT(date, a.app_dt) <= CONVERT(date, p.trans_dt) THEN 1 ELSE 0 END) as new_patients
+            FROM appointment as a
+            LEFT JOIN patient as p ON a.pt_id = p.id
+            WHERE CONVERT(date, a.app_dt) >= ? AND CONVERT(date, a.app_dt) <= ?
+            GROUP BY CONVERT(VARCHAR(10), a.app_dt, 120)
+            ORDER BY date ASC;
+        ";
+        return collect(DB::connection('mssql_clinic')->select($sql, [$startDate, $endDate]));
+    }
+    
+    public function findPatientByMobile(string $mobile): ?stdClass
+    {
+        return $this->connection->table('patient')->where('mobile', $mobile)->first();
+    }
+
+    public function findPatientById(int $patientId): ?stdClass
+    {
+        return $this->connection->table('patient')->where('id', $patientId)->first();
+    }
+    
+    public function findPatientsByIds(array $patientIds): Collection
+    {
+        if (empty($patientIds)) {
+            return collect();
+        }
+        return $this->connection->table('patient')->whereIn('id', $patientIds)->get()->keyBy('id');
+    }
+    
     public function getAppointmentsInWindow(string $startTime, string $endTime): Collection
     {
         $today_yyyymmdd = now()->format('Y/m/d'); 
@@ -218,31 +260,17 @@ public function getRevenuePerDoctor(int $days = 30): \Illuminate\Support\Collect
                 'doc_nm as doctor_name',
                 'app_dt as appointment_date', 
                 'app_status',
-                'trans_dt as created_at' // <-- THIS IS THE REQUIRED CHANGE
+                'trans_dt as created_at'
             )
             ->get();
     }
     
-
-
- /**
-     * Replaces the old `getAllAppointmentsForDate`.
-     * Fetches appointments that finished within a specific time window.
-     * This handles the 'yyyy/mm/dd' text-based date format safely.
-     *
-     * @param string $startTime 'H:i:s'
-     * @param string $endTime 'H:i:s'
-     * @return \Illuminate\Support\Collection
-     */
     public function getAppointmentsFinishedInWindow(string $startTime, string $endTime): Collection
     {
-        // Get today's date in the format the database uses (YYYY/MM/DD)
         $today_yyyymmdd = now()->format('Y/m/d');
 
         return $this->connection->table('appointment')
-            // Match today's date using the text format
             ->where('app_dt', $today_yyyymmdd)
-            // Filter by the time part
             ->whereTime('to_tm', '>=', $startTime)
             ->whereTime('to_tm', '<', $endTime)
             ->whereNotNull('to_tm')
@@ -256,66 +284,32 @@ public function getRevenuePerDoctor(int $days = 30): \Illuminate\Support\Collect
             )
             ->get();
     }
-     public function getAverageRevenuePerAppointment(int $days = 30): float
+       public function getAverageRevenuePerPatientByDoctor(int $limit = 5): Collection
     {
-        $startDate = now()->subDays($days)->format('Y-m-d');
-
-        // Get total revenue for the period
-        $totalRevenue = $this->connection->table('invoice_h')
-            ->where(DB::raw("CONVERT(date, inv_dt)"), '>=', $startDate)
-            ->sum(DB::raw('cash + span'));
-
-        // Get total number of appointments for the period
-        $totalAppointments = $this->connection->table('appointment')
-            ->where(DB::raw("CONVERT(date, app_dt)"), '>=', $startDate)
-            ->count();
-            
-        if ($totalAppointments === 0) {
-            return 0.0;
-        }
-
-        return $totalRevenue / $totalAppointments;
-    }
-
-    // --- NEW METHOD 2: PATIENT RETENTION RATE ---
-    /**
-     * Calculates the patient retention rate over a given period.
-     *
-     * @param int $days The number of days to look back.
-     * @return float The retention rate as a percentage.
-     */
-    public function getPatientRetentionRate(int $days = 30): float
-    {
-        $startDate = now()->subDays($days)->format('Y-m-d');
-        $endDate = now()->format('Y-m-d');
-
-        // This query is similar to getNewVsReturningPatients but without the daily grouping
-        $sql = "
-            SELECT
-                SUM(
-                    CASE
-                        WHEN p.id IS NOT NULL AND CONVERT(date, a.app_dt) > CONVERT(date, p.trans_dt)
-                        THEN 1
-                        ELSE 0
-                    END
-                ) as returning_patients,
-                
-                SUM(1) as total_appointments
-            FROM
-                appointment as a
-            LEFT JOIN
-                patient as p ON a.pt_id = p.id
-            WHERE
-                CONVERT(date, a.app_dt) >= ?
-                AND CONVERT(date, a.app_dt) <= ?;
-        ";
-
-        $result = DB::connection('mssql_clinic')->selectOne($sql, [$startDate, $endDate]);
-
-        if (!$result || $result->total_appointments == 0) {
-            return 0.0;
-        }
-
-        return ($result->returning_patients / $result->total_appointments) * 100;
-    }
+        $unifiedRevenueQuery = $this->_getTotalRevenueQuery();
+        
+        $unifiedRevenue = DB::connection('mssql_clinic')->table(
+            DB::raw("({$unifiedRevenueQuery->toSql()}) as unified_revenue")
+        )->mergeBindings($unifiedRevenueQuery);
+        
+        return $unifiedRevenue
+            ->join('doctor as d', 'unified_revenue.doc_id', '=', 'd.id')
+            ->select(
+                'd.name_a as doctor_name',
+                DB::raw('SUM(unified_revenue.amount) as total_revenue'),
+                DB::raw('COUNT(DISTINCT unified_revenue.pt_id) as unique_patients')
+            )
+            ->whereNotNull('d.name_a')
+            ->where('d.name_a', '<>', '')
+            ->groupBy('d.name_a')
+            ->having(DB::raw('COUNT(DISTINCT unified_revenue.pt_id)'), '>', 0) // Ensure we don't divide by zero
+            ->orderByDesc('total_revenue')
+            ->take($limit)
+            ->get()
+            ->map(function ($row) {
+                // Calculate the average on the PHP side after getting the totals
+                $row->avg_revenue_per_patient = $row->total_revenue / $row->unique_patients;
+                return $row;
+            });
+}
 }

@@ -19,17 +19,23 @@
         </header>
 
         <!-- ========== KPI Cards ========== -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <!-- Today's Revenue Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Today's Revenue</h3>
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['kpis']->total_revenue_today ?? 0, 2) }} SAR</p>
             </div>
             
-            <!-- NEW: Average Revenue Per Appointment Card -->
+            <!-- Average Revenue Per Appointment Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Revenue / Appt.</h3>
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['arpa'] ?? 0, 2) }} SAR</p>
+            </div>
+
+            <!-- Average Revenue Per Patient Card -->
+            <div class="bg-white p-6 shadow rounded-lg text-center">
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Revenue / Patient (30d)</h3>
+                <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['arpp'] ?? 0, 2) }} SAR</p>
             </div>
 
             <!-- Appointments Today Card -->
@@ -38,7 +44,7 @@
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ $data['kpis']->appointments_today ?? 0 }}</p>
             </div>
 
-            <!-- NEW: Patient Retention Rate Card -->
+            <!-- Patient Retention Rate Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Retention Rate (30d)</h3>
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['retentionRate'] ?? 0, 1) }}%</p>

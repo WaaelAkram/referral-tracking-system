@@ -27,7 +27,7 @@
         </header>
 
         <!-- ========== KPI Cards ========== -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <!-- Today's Revenue Card -->
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">إيرادات اليوم</h3>
@@ -38,6 +38,12 @@
             <div class="bg-white p-6 shadow rounded-lg text-center">
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">متوسط الإيرادات لكل موعد</h3>
                 <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['arpa'] ?? 0, 2) }} <span class="text-lg">ريال</span></p>
+            </div>
+
+            <!-- Average Revenue Per Patient Card (AR) -->
+            <div class="bg-white p-6 shadow rounded-lg text-center">
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">متوسط الإيرادات لكل مريض (30 يوم)</h3>
+                <p class="mt-1 text-3xl font-semibold text-indigo-600">{{ number_format($data['arpp'] ?? 0, 2) }} <span class="text-lg">ريال</span></p>
             </div>
 
             <!-- Appointments Today Card -->
@@ -95,7 +101,7 @@
                     }],
                     chart: { type: 'area', height: 350, toolbar: { show: false }, zoom: { enabled: false } },
                     xaxis: { categories: monthlyRevenueData.map(item => item.month), labels: { style: { colors: '#6b7280', fontFamily: 'Tajawal, sans-serif' } } },
-                    yaxis: { title: { text: 'ريال', style: { color: '#6b7280', fontFamily: 'Tajawal, sans-serif' } }, labels: { style: { colors: '#6b7280', fontFamily: 'Tajawal, sans-serif' } } },
+                    yaxis: { title: { text: 'ريال', style: { color: '#6b7280', fontFamily: 'Tajawal, sans-serif' } }, labels: { style: { style: { colors: '#6b7280', fontFamily: 'Tajawal, sans-serif' } } } },
                     stroke: { curve: 'smooth' },
                     dataLabels: { enabled: false },
                     tooltip: { x: { format: 'MMMM yyyy' } }
