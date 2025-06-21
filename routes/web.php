@@ -7,9 +7,9 @@ use App\Http\Controllers\ReferralCodeGeneratorController;
 use App\Http\Controllers\ReferralInfoController;
 use App\Http\Controllers\ReferralProcessController;
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\PublicDashboardController;
 // ... (all your route definitions)
-
+Route::get('/clinic-dashboard', [PublicDashboardController::class, 'index'])->name('public.dashboard');
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [ReferralController::class, 'home'])->name('dashboard');
     Route::post('/referral/eligibility/check', [ReferralEligibilityController::class, 'check'])->name('referral.eligibility.check');
