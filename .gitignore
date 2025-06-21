@@ -24,3 +24,5 @@ Homestead.yaml
 npm-debug.log
 Thumbs.db
 yarn-error.log
+.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/LOG
+.wwebjs_auth/session/Default/WebStorage/QuotaManager
